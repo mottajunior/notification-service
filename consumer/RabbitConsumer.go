@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"github.com/streadway/amqp"
 	"os"
+	"strings"
+	"log"
+	"github.com/appleboy/go-fcm"
+	// "github.com/NaySoftware/go-fcm"
 )
 
 
@@ -35,47 +39,60 @@ func ConsumeQueue(){
 	}
 
 	for msg := range msgs {
-		//token,msg := formatMessage(msg.body)
-		//sendNotification(token,msg)
-		fmt.Println("message received: " + string(msg.Body))
+		notificationBody := string(msg.Body)
+		fmt.Println("message received: " + notificationBody)
+		SplitedNotification := strings.Split(notificationBody, "/")
+		tokens := SplitedNotification[0]
+		message := SplitedNotification[1]
+		raceId := SplitedNotification[2]
+
+		
+		AllTokens :=  strings.Split(tokens, "#!#")
+
+		if len(AllTokens) > 1{
+			SendNotificationForManyTokens(AllTokens,message,raceId)
+		} else{
+			SendNotificationForOneToken(AllTokens[0],message)
+		}
+
 		msg.Ack(false)
 	}
-
 	defer connection.Close()
-
 }
 
+func SendNotificationForManyTokens(tokens []string, message string, raceId string){
+	fmt.Println("ENVIANDO NOTIFICACAO PARA TODOS MOTORISTAS")
+	fmt.Println("TOKEN ==>",tokens)
+	fmt.Println("MENSAGEM ==>", message)
+	fmt.Println("raceId ==>",raceId)
 
+	//Create the message to be sent.
+	msg := &fcm.Message{
+		To: tokens[0],
+		Data: map[string]interface{}{
+			"message": message,
+			"title": "Corrida Encontrada",
+			"body": raceId	,		
+		},
+	}	
+	// Create a FCM client to send the message.
+	client, err := fcm.NewClient("AAAAXSrd1t0:APA91bEveSugmY7A9ismkVFE9GKPRzmYb0CoGmf57kv2SwwNW4VfyiYAApLuTCr-A2haHKx3A5XneTo2b97vssBObZ9Yiko1Akd1ZOyMdjeVhF4mGXhAuPSdFt7djJpahDur68o8CD1y")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	
+	// Send the message and receive the response without retries.
+	response, err := client.Send(msg)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
+	log.Printf("vai printar a resposta da notificação")
+	log.Printf("%#v\n", response)
+}
 
-
-
-
-
-
-
-
-
-
-
-//firebase-example:
-// Create the message to be sent.
-//msg := &fcm.Message{
-//	To: "sample_device_token",
-//	Data: map[string]interface{}{
-//		"foo": "bar",
-//	},
-//}
-//// Create a FCM client to send the message.
-//client, err := fcm.NewClient("sample_api_key")
-//if err != nil {
-//	log.Fatalln(err)
-//}
-//// Send the message and receive the response without retries.
-//response, err := client.Send(msg)
-//if err != nil {
-//	log.Fatalln(err)
-//}
-//
-//log.Printf("%#v\n", response)
-
+func SendNotificationForOneToken(token string, message string){
+	fmt.Println("ENVIANDO NOTIFICACAO PARA UMA PESSOA")
+	fmt.Println("TOKEN ==>",token)
+	fmt.Println("MENSAGEM ==>", message)
+}
